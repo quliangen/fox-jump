@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>FoxJump-By曲良恩</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        html,body {
+            height:100%;
+        }
+        body {
+            background: url('./images/fox-bg.jpg') no-repeat;
+            background-size: 100% 100%;
+            font-family: 'Microsoft Yahei';
+
+        }
+        .info {
+            width: 300px;
+            padding: 10px;
+            position: fixed;
+            /*float:left;*/
+            left : 30px;
+            top: 30px;
+            background-color: rgba(255,255,255,0.9);
+            border-radius: 20px;
+         }
+         .info button {
+            width: 80px;
+            padding: 3px 5px;
+            background-color: orange;
+            border: none;
+            color: #fff ;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            outline: none;
+         }
+         .info button.disabled {
+             background: yellowgreen;
+         }
+         .hide {
+            display: none;
+         }
+         .show {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            margin-left: -75px;
+            margin-top: -75px;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.5);
+            line-height: 150px;
+            font-size: 100px;  
+            color: red;    
+            text-align :center;
+         } 
+         .msg-show {
+            position: absolute;
+            left: 50%;
+            top: 40%;
+            margin-left: -150px;
+            margin-top: -150px;
+            width: 300px;
+            /*height: 300px;*/
+            border-radius: 10%;
+            background: rgba(0,0,0,0.4);
+            font-size: 40px;
+            line-height: 80px;  
+            color: orange ;    
+            text-align :center;
+         }
+
+    </style>
+</head>
+<body>
+    <div class="info">
+        <h2>游戏说明：</h2>
+        <p>
+            点击按钮开始游戏，
+            pc端按左右键左右水平移动，
+            按up键上跳！
+        </p>
+        <p> 
+            简易模式：躲避20支剑 <br>
+            大神模式：躲避30支乱剑！
+        </p>
+        <button id="easy">简易游戏</button>
+        <button id="hard">大神模式</button>
+    </div>
+    <div id='lastTime' class="hide">  
+        5
+    </div>
+    <div id='msg'></div>
+    <div class="canvas-container"> 
+        <canvas id = "canvas" width="1250" height="600"></canvas>
+    </div>
+</body>
+    <script>
+        //需求fox条要躲避刀剑
+        var canvas = document.querySelector('#canvas');
+
+        var ctx = canvas.getContext('2d');
+        var k = 0;
+        var index = 0;
+        var btnEasy = document.querySelector('#easy');
+        var btnHard = document.querySelector('#hard');
+        var lastTime = document.querySelector('#lastTime');
+        var boxMsg = document.querySelector('#msg');
+        var flag = true;
+        var foxZero = {}; //接收fox的 中心点
+
+        // 创建fox实例 绘制fox
+        var imgFox = new Image();
+        imgFox.src = './images/fox.png';
+         // 绘制fox数据及方法调用
+        imgFox.onload = function(){
+            // 绘制fox的数据data
+            var n = 4;
+            var data = {
+                    col: 0,
+                    row: 0,
+                    step: this.width/10,
+                    sX : 0, //人物位于原始图像上的 x坐标
+                    sY : 0, //
+                    xZero:400, //人物在 画布上的坐标 x
+                    yZero:550,
+                    sWidth : this.width/n, //人物在设计图片上的宽
+                    sHeight: this.height/n,
+                    canWid : this.width/n,  //人物在canvas上的宽
+                    canHei : this.height/n,
+                    // xz: this.xZero-this.width/8, // 中心点 x坐标
+                    // yz: this.yZero-this.width/8, // 中心点 x坐标
+            }
+            data.xz = data.xZero - this.width/8; // 中心点 x坐标
+            data.yz = data.yZero- this.height/8; // 中心点 y坐标
+            
+            for(var key in data ){
+                this[key] = data[key];
+            }
+            //1 绘制静态人物
+            //将人物中心绘制到 初始位置
+            ctx.drawImage(this,data.sX,data.sY,data.sWidth,data.sHeight,data.xz,data.yz,data.canWid,data.canHei);
+            // 2 绘制动态人物
+            drawGamerRun(this);
+        }
+
+//--------- 开启简易模式--------
+        btnEasy.addEventListener ('click' , function(){
+            
+            this.disabled = true ;
+            btnHard.disabled = true;
+            btnEasy.innerHTML = "游戏中";
+            btnEasy.className = "disabled";
+            // 倒计时
+            lTime()
+            // false 生成平行剑
+            jianInit(1400,550,'right',false,5000,3);
+        });
+//------------ 开启大神模式 左侧剑 向右  移动---------
+        btnHard.addEventListener ('click' , function(){
+            // 左侧剑到右侧
+            // 禁止按钮多次点击
+            
+            btnEasy.disabled = true ;
+            this.disabled = true ;
+            // 更改按钮提示文字 及 样式
+            btnHard.innerHTML = "游戏中";
+            btnHard.className = "disabled";
+
+            // 倒计时
+            lTime()
+           
+            // 右侧乱剑到左侧
+            jianInit(1400,510,'right',true,4500,30);
+        });
+
+        
+        // 倒计时函数
+        function lTime() {
+            // console.log(1);
+            lastTime.className = 'show';
+            var n = 5;
+            var timer = setInterval(function(){
+                lastTime.innerHTML = n;
+                n--;
+                if(n < 0){
+                    n=5;
+                    lastTime.className = 'hide';
+                    clearInterval(timer);
+                }
+            },800)
+        }
+
+        // 绘制动态fox方法
+        function drawGamerRun(self){
+            //2 左右走 按左键 键值 37左走 右键 39右走 
+            var timer,timerDow;
+            var gumCur = self.yz; //记录挑起前的位置
+            var isMove = true; //开闭原则 默认可以左右移动
+            
+            foxZero = {
+                        contW:self.canWid,
+                        contH:self.canHei,
+                        xz:self.xz,
+                        yz:self.yz
+                            }
+            // pc端 按键控制 
+
+            document.onkeydown = function(e){
+                var code = e.keyCode;
+                //功能一 左走
+                if(code === 37 && isMove){
+                    if(self.row!=1){
+                        self.row = 1;
+                    }else{
+                        self.xz -= self.step/2;
+                        self.col++;
+                        if(self.col>3){
+                            self.col = 0;
+                        }
+                        // 记录中心点坐标
+                        foxZero = {
+                            contW:self.canWid,
+                            contH:self.canHei,
+                            xz:self.xz,
+                            yz:self.yz
+                        }
+                        // console.log(foxZero);
+                        ctx.clearRect(self.xz,self.yz,self.canWid,self.canHei);
+                        ctx.drawImage(self,self.col*self.sWidth,self.row*self.sHeight,self.sWidth,self.sHeight,self.xz,self.yz,self.canWid,self.canHei);
+                    }
+                }
+                //功能 右走
+                if(code === 39 && isMove){
+                    if(self.row!=2){
+                        self.row = 2;
+                    }else{
+                        self.xz += self.step/2;
+                        self.col++;
+                        if(self.col>3){
+                            self.col = 0;
+                        }
+                        // 记录中心点坐标
+                        foxZero = {
+                            contW:self.canWid,
+                            contH:self.canHei,
+                            xz:self.xz,
+                            yz:self.yz
+                        }
+                        // console.log(foxZero);
+                        ctx.clearRect(self.xz,self.yz,self.canWid,self.canHei);
+                        ctx.drawImage(self,self.col*self.sWidth,self.row*self.sHeight,self.sWidth,self.sHeight,self.xz,self.yz,self.canWid,self.canHei);
+                    }
+                }
+
+                //功能 向上跳 并且自动下落
+                if(code === 38){
+                    // bug 解决人物跳动时 触发按键人物 停止运动 及 持续按上键 人物抖动
+                    // 解决方法  开闭原则 
+                    clearInterval(timerDow); 
+                    isMove = false; //不可以移动了
+                    //显示跳动画面 默认向右
+                    self.row = self.row || 2 ;
+                    // self.col = 1;
+                    self.col++;
+                    if(self.col>2){
+                        self.col = 0;
+                    }
+                    // self.col = 1;
+                    //每次向上跳 一个身高
+                    var gumTar = self.yz - self.canHei;
+                    //步长 处理
+                    var gumpStep = self.canHei/80;
+                    //记录起跳位置
+                    var flag = false; //开闭原则 flag代表人物下降状态 默认为FALSE 上升
+                        clearInterval(timer); 
+                        timer = setInterval(function(){
+                        //1 上升 一个身高 y-去一个身高
+                        self.yz -= gumpStep; 
+                        // 记录中心点坐标
+                        foxZero = {
+                                contW:self.canWid,
+                                contH:self.canHei,
+                                xz:self.xz,
+                                yz:self.yz
+                            }
+                        // console.log(foxZero);
+                        ctx.clearRect(self.xz,self.yz,self.canWid,self.canHei);
+                        ctx.drawImage(self,self.col*self.sWidth,self.row*self.sHeight,self.sWidth,self.sHeight,self.xz,self.yz,self.canWid,self.canHei);
+                        // 如果当前位置小于起跳位置
+                        if(gumTar>=self.yz){
+                            self.yz = gumTar;
+                            flag = true; 
+                            // 记录中心点坐标
+                            foxZero = {
+                                contW:self.canWid,
+                                contH:self.canHei,
+                                xz:self.xz,
+                                yz:self.yz
+                            }
+                            // console.log(foxZero);
+                            ctx.clearRect(self.xz,self.yz,self.canWid,self.canHei);                            
+                            ctx.drawImage(self,self.col*self.sWidth,self.row*self.sHeight,self.sWidth,self.sHeight,self.xz,self.yz,self.canWid,self.canHei);
+                        
+                            clearInterval(timer); 
+                            // 开始下降
+                            if(flag){
+                                self.col = 0;
+                               clearInterval(timerDow); 
+                                
+                                timerDow = setInterval(function(){
+                                self.yz += gumpStep;
+                                // 记录中心点坐标
+                                foxZero = {
+                                    contW:self.canWid,
+                                    contH:self.canHei,
+                                    xz:self.xz,
+                                    yz:self.yz
+                                }
+                                // console.log(foxZero);
+                                ctx.clearRect(self.xz,self.yz,self.canWid,self.canHei);                                
+                                ctx.drawImage(self,self.col*self.sWidth,self.row*self.sHeight,self.sWidth,self.sHeight,self.xz,self.yz,self.canWid,self.canHei);
+                                // 如果起跳位置 小于等于当前位置 
+                                if(gumCur <= self.yz){
+                                    self.yz = gumCur;
+                                    flag = false; 
+                                    // 记录中心点坐标
+                                    foxZero = {
+                                        contW:self.canWid,
+                                        contH:self.canHei,
+                                        xz:self.xz,
+                                        yz:self.yz
+                                    }
+                                    // console.log(foxZero);
+                                    ctx.clearRect(self.xz,self.yz,self.canWid,self.canHei);                                    
+                                    ctx.drawImage(self,self.col*self.sWidth,self.row*self.sHeight,self.sWidth,self.sHeight,self.xz,self.yz,self.canWid,self.canHei);
+
+                                    clearInterval(timerDow); 
+                                    isMove = true; //可以左右移动了
+                                    }
+                                },5); 
+                            }
+                        }
+                    },5);
+                    
+                    // 记录中心点坐标
+                    foxZero = {
+                        contW:self.canWid,
+                        contH:self.canHei,
+                        xz:self.xz,
+                        yz:self.yz
+                    }
+                    // console.log(foxZero);
+                    ctx.clearRect(0,0,canvas.width,canvas.height);
+                    ctx.drawImage(self,self.col*self.sWidth,self.row*self.sHeight,self.sWidth,self.sHeight,self.xz,self.yz,self.canWid,self.canHei);
+                    
+                }
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                ctx.drawImage(self,self.col*self.sWidth,self.row*self.sHeight,self.sWidth,self.sHeight,self.xz,self.yz,self.canWid,self.canHei);
+                foxZero = {
+                    contW:self.canWid,
+                    contH:self.canHei,
+                    xz:self.xz,
+                    yz:self.yz
+                }
+                // window.foxZero = foxZero;
+            }
+             window.foxZero = foxZero;
+            
+        }
+
+        // 生成剑位置数据数据方法 暂时设置 左 
+        function jianInit(xZero,yZero,direction,flag,time,timing){
+                // 每隔一段事件创建剑一个实例
+                window.timer = setInterval(function(){
+                    // 剑的计数器从1开始
+                    index++;
+                    if(index>timing-1){
+
+                        clearInterval(window.timer);
+                        // return;
+                    }
+                    var imgJian = new Image();
+                    imgJian.src = './images/jian-'+ direction +'.png';
+                    // 绘制剑
+                    imgJian.onload = function(){
+                        // 绘制剑的数据data 控制剑的y坐标
+                        if(flag){
+                            if(k<5){
+                                yZero = yZero - k*5;
+                            }else{
+                                yZero = yZero + k*2;
+                            }
+                        }
+                        var n = 11;
+                        var data = {
+                                index:index,
+                                col: 0,
+                                row: 0,
+                                step: this.width/180,
+                                sX : 0, //剑位于原始图像上的 x坐标
+                                sY : 0, //
+                                xZero: xZero, //剑在 画布上的坐标 x
+                                yZero: yZero,
+                                sWidth : this.width, //剑在设计图片上的宽
+                                sHeight: this.height/n,
+                                canWid : this.width/2,  //剑在canvas上的宽
+                                canHei : this.height/n/2,
+                                // xz: this.xZero-this.width/8, // 中心点 x坐标
+                                // yz: this.yZero-this.width/8, // 中心点 x坐标
+                        }
+                        data.xz = data.xZero - this.width/2; // 中心点 x坐标
+                        data.yz = data.yZero- this.height/n/2; // 中心点 y坐标
+                        
+                        for(var key in data ){
+                            this[key] = data[key];
+                        }
+                        k++;
+                        if(k>10){
+                            k = 0;
+                        }
+                        this.row = k;
+                        //  绘制动态人物                
+                        drawJian(this,direction,timing);
+                    }
+                    },time);
+        }
+         // 绘制并移动剑的方法
+        function drawJian(self,direction,timing){
+            //剑向左或向右移动利用 定时器 x- 
+            if(direction ==='right'){
+                // ctx.clearRect(0,0,canvas.width,canvas.canHei);
+                self.timer = setInterval(function(){
+                    self.xz -= self.step;
+            //------------碰撞检测---------- 
+                    // 每次移动时候检测自己 与fox 中心点的关系 
+                    // 如果 x轴的差值小于等于 fox+剑宽/2 且 y的差值 小于等于 fox+剑高/2
+                    if(Math.abs(window.foxZero.xz  - self.xz) < 65 && Math.abs(window.foxZero.yz  - self.yz) < 40 ){
+                        // 发生碰撞游戏结束
+                        boxMsg.className = 'msg-show';
+                        boxMsg.innerHTML = ' game over！'+ '<br/> 得分:  ' +self.index;
+                        // alert();
+                        // 碰撞时候重绘
+                        // 清除画布
+                        ctx.clearRect(0,0,canvas.width,canvas.canHei);
+                        // ctx.drawImage(self,self.col*self.sWidth,self.row*self.sHeight,self.sWidth,self.sHeight,self.xz,self.yz,self.canWid,self.canHei);
+                        // 清除定时器自己移动 和 生成jian的
+                        clearInterval(self.timer);
+                        clearInterval(window.timer);
+                        setTimeout(function(){
+                                // 初始化游戏数据
+                                gameInit();
+                        },5000);                       
+                        return ; 
+                    }
+                    // 检测剑超出边界 清除自身定时器
+                    if(self.xz<-200){
+                        // 如果计数器大于设置的剑数 用户赢了
+                        // -------判断用户胜利---------
+                        if(self.index > timing-1){
+                            // alert('You Win!');
+                            boxMsg.className = 'msg-show';
+                            boxMsg.innerHTML = ' You Win！'+ '<br/> 得分:  ' +self.index;
+                            setTimeout(function(){
+                                // 初始化游戏数据
+                                gameInit();
+                            },5000);
+                            
+                            clearInterval(self.timer);
+                            ctx.clearRect(0,0,canvas.width,canvas.canHei);
+                            return ;
+                        }
+                        clearInterval(self.timer);
+                    }
+                    ctx.clearRect(self.xz,self.yz,self.canWid+3,self.canHei);
+                    ctx.drawImage(self,self.col*self.sWidth,self.row*self.sHeight,self.sWidth,self.sHeight,self.xz,self.yz,self.canWid,self.canHei);
+                },13);
+            }
+        }
+        // 游戏结束重置数据 方法
+        function gameInit(){
+                boxMsg.className = '';
+                boxMsg.innerHTML = '';
+                flag = false;
+                btnEasy.innerHTML = "简易模式";
+                btnHard.innerHTML = "大神模式";
+                lastTime.innerHTML = 5;
+                btnHard.className = "";
+                btnEasy.className = "";
+                btnEasy.disabled = flag;
+                btnHard.disabled = flag;
+                k=0;
+                index=0;
+        }
+
+    </script>
+</html>
